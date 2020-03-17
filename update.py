@@ -20,7 +20,7 @@ def enter_dfu( product_id ):
     packet = "01380600" + product_id + "0000"
 
     cs = 0
-    for b in bytes.fromhex( packet):
+    for b in bytes.fromhex( packet ):
         cs = cs + b
 
     cs_str = "{:04X}".format( int.from_bytes( ( -cs & 0xFFFF ).to_bytes( 2, 'big' ), 'little' ) )
@@ -130,7 +130,7 @@ def check_response( handle, packet ):
     # check status code (1-byte)
     status = packet[1]
     if status != 0:
-        print( "The device responded with error code 0x{:02X}.".format( status ) )
+        print( "The target responded with error code 0x{:02X}.".format( status ) )
         raise SystemExit
 
     # Get data length (2-bytes) and extract data (N-bytes)
@@ -140,30 +140,30 @@ def check_response( handle, packet ):
     return data
 
 
-node_mac = "00:a0:50:f4:64:be"
+target_mac = "00:a0:50:f4:64:be"
 dfu_uuid = "00060000-F8CE-11E4-ABF4-0002A5D5C51B"
 delegate = Delegate()
 
 crc32c_func = crcmod.predefined.mkCrcFun( 'crc-32c' )
 
-dev = btle.Peripheral( node_mac )
-dev.setDelegate( delegate )
+target = btle.Peripheral( target_mac )
+target.setDelegate( delegate )
 
-dfu_service = dev.getServiceByUUID( dfu_uuid )
+dfu_service = target.getServiceByUUID( dfu_uuid )
 
 # Enable Notifications on the DFU Device
-dev.writeCharacteristic( 0x0C, bytes.fromhex( "0100" ), withResponse=True )
-resp = dev.readCharacteristic( 0x0C ) 
+target.writeCharacteristic( 0x0C, bytes.fromhex( "0100" ), withResponse=True )
+resp = target.readCharacteristic( 0x0C ) 
 
 # check response
 if resp != bytes.fromhex( "0100" ):
-    print( "Failed to enable notifications on device " + node_mac + '.' )
+    print( "Failed to enable notifications on target " + target_mac + '.' )
     raise SystemExit
 
-# Open the CYACD2 file and program the device
-with open( "mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2", 'r' ) as prog:
+# Open the CYACD2 file and program the target
+with open( "mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2", 'r' ) as fw_img:
     # Get the header and extract info
-    header = next( prog ).strip()
+    header = next( fw_img ).strip()
     file_version = int( header[0:2], 16 )
     silicon_id = header[2:10]
     silicon_rev = int( header[10:12], 16 )
@@ -173,18 +173,18 @@ with open( "mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2", 'r' ) as prog
 
     # Create Enter DFU packet and send it
     packet = enter_dfu( product_id )
-    dev.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
+    target.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
 
     # check response
-    if not dev.waitForNotifications( 2 ):
-        print( "No response from device!" )
+    if not target.waitForNotifications( 2 ):
+        print( "No response from target!" )
         raise SystemExit
     check_response( delegate.handle, delegate.data )
     
     # Get @APPINFO data and extract info
-    appinfo = next( prog ).strip().split( ':' )
+    appinfo = next( fw_img ).strip().split( ':' )
     if appinfo[0] != "@APPINFO":
-        print( "Expected \"@APPINFO:\" (Application verification information). Invalid program file!" )
+        print( "Expected \"@APPINFO:\" (Application verification information). Invalid firmware image file!" )
         raise SystemExit
     start_addr, app_len = appinfo[1].split( ',' )
     start_addr = int( start_addr, 0 )
@@ -192,19 +192,19 @@ with open( "mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2", 'r' ) as prog
 
     # Create Set Application Metadata packet and send it
     packet = set_application_metadata( app_id, start_addr, app_len )
-    dev.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
+    target.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
 
     # check response
-    if not dev.waitForNotifications( 2 ):
-        print( "No response from device!" )
+    if not target.waitForNotifications( 2 ):
+        print( "No response from target!" )
         raise SystemExit
     check_response( delegate.handle, delegate.data )
     
-    # Iterate through the remaining rows of program data and send them to the device
-    for row in prog:
+    # Iterate through the remaining rows of program data and send them to the target
+    for row in fw_img:
         # Ensure 'row' contains a data row
         if row[0] != ':':
-            print( "Expecting program data. Invalid program file!" )
+            print( "Expecting program data. Invalid firware image file!" )
             raise SystemExit
 
         # Extract row data
@@ -220,30 +220,30 @@ with open( "mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2", 'r' ) as prog
             packet = [ packet[i:i+packet_size] for i in range( 0, len( packet ), packet_size ) ]
 
             for p in packet:
-                print( p, dev.writeCharacteristic( 0x0B, bytes.fromhex( p ) ) )
+                print( p, target.writeCharacteristic( 0x0B, bytes.fromhex( p ) ) )
 
             # check response
-            if not dev.waitForNotifications( 2 ):
-                print( "No response from device!" )
+            if not target.waitForNotifications( 2 ):
+                print( "No response from target!" )
                 raise SystemExit
             check_response( delegate.handle, delegate.data )
 
 # Send Verify Application command
 packet = verify_application( app_id )
-dev.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
+target.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
 
 # check response
-if not dev.waitForNotifications( 2 ):
-    print( "No response from device!" )
+if not target.waitForNotifications( 2 ):
+    print( "No response from target!" )
     raise SystemExit
 check_response( delegate.handle, delegate.data )
 
 # Send the Exit DFU command
 packet = end_dfu()
-dev.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
+target.writeCharacteristic( 0x0B, bytes.fromhex( packet ) )
 
 try:
-    dev.disconnect()
+    target.disconnect()
 except:
     pass
 finally:
