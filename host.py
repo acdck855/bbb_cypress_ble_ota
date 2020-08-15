@@ -31,9 +31,14 @@ class Host:
     _CODE_DFU_ERROR_UNKNOWN          = b'\x0F'
 
 
-    def __init__(self):
-        pass
+    def __init__(self, dfuTarget, dfuHandle):
+        # TODO Check input parameters
 
+        # TODO Enusre a connection has been established with the target
+
+        # Set attributes
+        self._dfuTarget = dfuTarget
+        self._dfuHandle = dfuHandle
 
     def enterDFU(self, productID = 0):
         # Check input parameters
@@ -43,22 +48,41 @@ class Host:
 
         # Create the packet payload
         payload = struct.pack("<I", productID)
+        
+        # Send the Enter DFU command and get the response
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_ENTER_DFU, payload, 2)
 
-        # Create the Enter DFU command packet 
-        packet = self.createCmdPacket(self._CMD_ENTER_DFU, payload)
-        return self.sendPacket(packet)
+        # Check status code
+        if statusCode != self._CODE_DFU_SUCCESS:
+            # TODO use dictionaries for error codes e.g. {0x00: "Success"}
+            print(f"ERROR: Enter DFU: Status code {statusCode} returned.")  
+            raise SystemExit
 
+        # Parse reponse packet payload and print data fields
+        jtagID, deviceRev, dfuSdkVer = struct.unpack("<IBI", respData[:5] + b'\x00' + respData[5:])
+        print("Enter DFU successful.")
+        print(f"> JTAG ID: 0x{jtagID:08x}")
+        print(f"> Device Revision 0x{deviceRev:02x}")
+        print(f"> DFU SDK Version 0x{dfuSdkVer:08x}")
 
+        return statusCode
+    
     def syncDFU(self):
         # Create the Sync DFU command packet
-        packet = self.createCmdPacket(self._CMD_SYNC_DFU)
-        return self.sendPacket(packet)
+        packet = self._createCmdPacket(self._CMD_SYNC_DFU)
+        return self._sendPacket(packet)
 
 
     def exitDFU(self):
+        # Send the Exit DFU command (no response)
         # Create the Exit DFU command packet
-        packet = self.createCmdPacket(self._CMD_EXIT_DFU)
-        return self.sendPacket(packet)
+        packet = self._createCmdPacket(self._CMD_EXIT_DFU)
+
+        # Send the packet to the target
+        self._sendPacket(packet)
+        
+        # No need to wait for and get response
+        return 
 
 
     def sendData(self, data):
@@ -67,9 +91,16 @@ class Host:
             print("data must be a bytes object")
             raise SystemExit
 
-        # Create the Send Data command packet
-        packet = self.createCmdPacket(self._CMD_SEND_DATA, data)
-        return self.sendPacket(packet)
+        # Send the Send Command command and get the response from the target
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_SEND_DATA, data, 2)
+
+        # Check status code
+        if statusCode != self._CODE_DFU_SUCCESS:
+            print(f"ERROR: Send Data: Status code {statusCode} returned.")  
+            raise SystemExit
+        print("Send Data successful.")
+
+        return statusCode
 
 
     def sendDataWithoutResponse(self, data):
@@ -79,8 +110,8 @@ class Host:
             raise SystemExit
 
         # Create the Send Data Without Response command packet
-        packet = self.createCmdPacket(self._CMD_SEND_DATA_WITHOUT_RESPONSE, data)
-        return self.sendPacket(packet)
+        packet = self._createCmdPacket(self._CMD_SEND_DATA_WITHOUT_RESPONSE, data)
+        return self._sendPacket(packet)
 
 
     def programData(self, rowAddr, rowDataChecksum, data):
@@ -98,9 +129,16 @@ class Host:
         # Create the packet payload
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
 
-        # Create the Program Data command packet
-        packet = self.createCmdPacket(self._CMD_PROGRAM_DATA, payload)
-        return self.sendPacket(packet)
+        # Send the Program Data command and get the response from the target
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_PROGRAM_DATA, payload, 2)
+
+        # Check status code
+        if statusCode != self._CODE_DFU_SUCCESS:
+            print(f"ERROR: Program Data: Status code {statusCode} returned.")  
+            raise SystemExit
+        print("Program Data successful.")
+
+        return statusCode
         
 
     def verifyData(self, rowAddr, rowDataChecksum, data):
@@ -119,8 +157,8 @@ class Host:
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
         
         # Create the Verify Data command packet
-        packet = self.createCmdPacket(self._CMD_VERIFY_DATA, payload)
-        return self.sendPacket(packet)
+        packet = self._createCmdPacket(self._CMD_VERIFY_DATA, payload)
+        return self._sendPacket(packet)
         
 
     def eraseData(self, rowAddr):
@@ -130,8 +168,8 @@ class Host:
             raise SystemExit
 
         # Create the Erase Data command packet
-        packet = self.createCmdPacket(self._CMD_ERASE_DATA, struct.pack("<I", rowAddr))
-        return self.sendPacket(packet)
+        packet = self._createCmdPacket(self._CMD_ERASE_DATA, struct.pack("<I", rowAddr))
+        return self._sendPacket(packet)
         
     def verifyApplication(self, appNum):
         # Check input parameter
@@ -139,9 +177,23 @@ class Host:
             print("appNum must be an int object")
             raise SystemExit
         
-        # Create the Verify Application command packet
-        packet = self.createCmdPacket(self._CMD_VERIFY_APPLICATION, struct.pack("<B", appNum))
-        return self.sendPacket(packet)
+        # Create the packet payload
+        payload = struct.pack("<B", appNum)
+        
+        # Send the Verify Application command and get the response from the target
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_VERIFY_APPLICATION, payload, 2)
+
+        # Check status code
+        if statusCode != self._CODE_DFU_SUCCESS:
+            print(f"ERROR: Verify Application: Status code {statusCode} returned.")  
+            raise SystemExit
+        print("Verify Application successful.")
+
+        # Parse the response packet payload and print the result of the query
+        appValid = struct.unpack("<B", respData)[0]
+        print(f"> Result: {appValid}")
+        
+        return statusCode
 
 
     def setApplicationMetadata(self, appNum, appStartAddr, appLength):
@@ -160,9 +212,16 @@ class Host:
         # Create the packet payload
         payload = struct.pack("<BII", appNum, appStartAddr, appLength)
 
-        # Create the Set Application Metadata command packet
-        packet = self.createCmdPacket(self._CMD_SET_APPLICATION_METADATA, payload)
-        return self.sendPacket(packet)
+        # Send the Set Application Metadata command and get the response from the target
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_SET_APPLICATION_METADATA, payload, 2)
+
+        # Check status code
+        if statusCode != self._CODE_DFU_SUCCESS:
+            printf(f"ERROR: Set Application Metadata: Status code {statusCode} returned.")
+            raise SystemExit
+        print("Set Application Metadata successful.")
+            
+        return statusCode
 
     
     def getMetadata(self, fromRowOffset, toRowOffset):
@@ -182,8 +241,8 @@ class Host:
         payload = struct.pack("<II", fromRowOffset, toRowOffset)
 
         # Create the Get Metadata command packet
-        packet = self.createCmdPacket(self._CMD_GET_METADATA, payload)
-        return self.sendPacket(packet)
+        packet = self._createCmdPacket(self._CMD_GET_METADATA, payload)
+        return self._sendPacket(packet)
 
 
     def setEIVector(self, vector):
@@ -191,7 +250,8 @@ class Host:
         pass
 
 
-    def getResponse(self, packet):
+    def _getResponse(self, packet):
+        # TODO Check input parameters
         # Attempt to unpack the response packet according to Figure 33 of AN213924
         try:
             startByte, statusCode, dataLength = struct.unpack("<ccH", packet[0:4])
@@ -205,14 +265,14 @@ class Host:
             raise SystemExit
 
         # Verify packet checksum
-        if self.calcChecksum_2sComplement_16bit(packet[:-3]) != checksum:
+        if self._calcChecksum_2sComplement_16bit(packet[:-3]) != checksum:
             print("The response packet is currupted")
             raise SystemExit
 
         return [statusCode, payload]
 
 
-    def createCmdPacket(self, cmd, payload = b''):
+    def _createCmdPacket(self, cmd, payload=b''):
         # Check input parameters
         if (not isinstance(cmd, bytes)) or (len(cmd) != 1):
             print("cmd must be a bytes object with a length of 1")
@@ -225,10 +285,10 @@ class Host:
         # Create command packet according to Figure 32 of AN213924
         payloadLength = len(payload)
         packet = struct.pack(f"<ccH{payloadLength}s", self._START_OF_PACKET, cmd, payloadLength, payload)
-        return packet + struct.pack("<Hc", self.calcChecksum_2sComplement_16bit(packet), self._END_OF_PACKET)
+        return packet + struct.pack("<Hc", self._calcChecksum_2sComplement_16bit(packet), self._END_OF_PACKET)
 
 
-    def calcChecksum_2sComplement_16bit(self, data):
+    def _calcChecksum_2sComplement_16bit(self, data):
         # Check input parameter
         if not isinstance(data, bytes):
             print("data must be a bytes object")
@@ -242,13 +302,49 @@ class Host:
         return (-cs & 0xFFFF)
 
 
-    def sendPacket(self, packet):
+    def _sendPacket(self, packet, maxLen=20):
         # Check input parameter
         if not isinstance(packet, bytes):
             print("packet must be a bytes object")
             raise SystemExit
         
-        return packet
+        # Send the packet in maxLen increments
+        packet = [packet[i:i+maxLen] for i in range(0, len(packet), maxLen)]
+        for p in packet:
+            self._dfuTarget.writeCharacteristic(self._dfuHandle, p)
+
+
+    def _waitForResponse(self, timeout=1):
+        "timeout is in seconds"
+        
+        # Block until either a notification is received from the target or the timeout elapses
+        if not self._dfuTarget.waitForNotifications(timeout):
+            return False
+
+        # If received notification is not from the DFU characteristic
+        while self._dfuTarget.delegate.handle != self._dfuHandle:
+            return False
+
+        # TODO handle receiving notifications from multiple characteristics
+        return True
+
+    def _sendCommandGetResponse(self, cmd, payload=b'', timeout=1):
+        # Create the command packet 
+        packet = self._createCmdPacket(cmd, payload)
+        for b in struct.unpack(f"{len(packet)}B", packet):
+            print(f"{b:02X}:", end='')
+        print()
+
+        # Send packet to target
+        self._sendPacket(packet)
+
+        # Wait for response from the target
+        if not self._waitForResponse(timeout):
+            print(f"Notification from handle {self._dfuHandle} not received")
+            raise SystemExit
+        
+        # Extract the status code and payload of the target's response packet
+        return self._getResponse(self._dfuTarget.delegate.data)
 
 
 if __name__ == "__main__":
