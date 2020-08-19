@@ -88,35 +88,27 @@ if __name__ == '__main__':
             print(f"\x1B[99D\x1B[K\x1B[1ADevice {choice} is not on the list. Choose a device to update: ", end='', flush=True)
         else:
             device = list(scanner.delegate.devDict.values())[choice-1]
-            print(f"You chose the device with MAC Address \"{device.addr}\"")
             break
 
     scanner.stop()
 
-    target = btle.Peripheral(device.addr).withDelegate(Delegate())
-
-    dfu_uuid = "00060000-F8CE-11E4-ABF4-0002A5D5C51B"
-    charHandle = 0x009
-    propHandle = 0x00A
+    # Connect to the user selected device
+    try:
+        target = btle.Peripheral(device.addr).withDelegate(Delegate())
+    except btle.BTLEException:
+        print(f"Could not connect to device \"{device.addr}\"")
+        print("Exiting...")
+        raise SystemExit
+    except:
+        print("Something went wrong.")
+        print("Exiting...")
+    print(f"Connected to device \"{target.addr}\"\n")
 
     crc32cFunc = crcmod.predefined.mkCrcFun('crc-32c')
 
-    target = btle.Peripheral(target_mac).withDelegate(Delegate())
+    hostCmd = host.Host(target)
 
-    print(target.getState())
-    # Enable Notifications on the DFU Device
-    target.writeCharacteristic(propHandle, bytes.fromhex("0100"), withResponse=True)
-    resp = target.readCharacteristic(propHandle) 
-
-    # check response
-    if resp != bytes.fromhex("0100"):
-        print("Failed to enable notifications on target " + target_mac + '.')
-        raise SystemExit
-
-    # Open the CYACD2 file and program the target
     fwImg = cyacd2.Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
-
-    hostCmd = host.Host(target, charHandle)
 
     # Begin a DFU operation
     hostCmd.enterDFU(fwImg.productID)

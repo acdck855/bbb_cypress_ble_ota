@@ -2,6 +2,7 @@ import struct
 
 class Host:
 
+    # TODO Use dictionaries? e.g. {0x00: "Success"}
     _START_OF_PACKET                 = b'\x01'
     _END_OF_PACKET                   = b'\x17'
 
@@ -30,15 +31,27 @@ class Host:
     _CODE_DFU_ERROR_ROW_ACCESS       = b'\x0B'
     _CODE_DFU_ERROR_UNKNOWN          = b'\x0F'
 
+    _CYPRESS_BOOTLOADER_SERVICE_UUID = "00060000-F8CE-11E4-ABF4-0002A5D5C51B"
 
-    def __init__(self, dfuTarget, dfuHandle):
+
+    def __init__(self, dfuTarget):
         # TODO Check input parameters
 
         # TODO Enusre a connection has been established with the target
 
-        # Set attributes
-        self._dfuTarget = dfuTarget
-        self._dfuHandle = dfuHandle
+        # TODO Error checking
+        # Get the bootloader service object
+        dfuService = dfuTarget.getServiceByUUID(self._CYPRESS_BOOTLOADER_SERVICE_UUID)
+
+        # Get the bootloader command characteristic (should be the only one...)
+        self._dfuCmdChar = dfuService.getCharacteristics()[0]
+
+        # Get the Client Characteristic Configuration Descriptor (CCCD)
+        self._dfuCCCD = self._dfuCmdChar.getDescriptors(forUUID=0x2902)[0]
+        
+        # Enable notifications from the Bootloader service
+        self._enableNotifications(self._dfuCCCD)
+
 
     def enterDFU(self, productID = 0):
         # Check input parameters
@@ -54,7 +67,6 @@ class Host:
 
         # Check status code
         if statusCode != self._CODE_DFU_SUCCESS:
-            # TODO use dictionaries for error codes e.g. {0x00: "Success"}
             print(f"ERROR: Enter DFU: Status code {statusCode} returned.")  
             raise SystemExit
 
@@ -311,18 +323,18 @@ class Host:
         # Send the packet in maxLen increments
         packet = [packet[i:i+maxLen] for i in range(0, len(packet), maxLen)]
         for p in packet:
-            self._dfuTarget.writeCharacteristic(self._dfuHandle, p)
+            self._dfuCmdChar.write(p)
 
 
     def _waitForResponse(self, timeout=1):
         "timeout is in seconds"
         
         # Block until either a notification is received from the target or the timeout elapses
-        if not self._dfuTarget.waitForNotifications(timeout):
+        if not self._dfuCmdChar.peripheral.waitForNotifications(timeout):
             return False
 
         # If received notification is not from the DFU characteristic
-        while self._dfuTarget.delegate.handle != self._dfuHandle:
+        while self._dfuCmdChar.peripheral.delegate.handle != self._dfuCmdChar.getHandle():
             return False
 
         # TODO handle receiving notifications from multiple characteristics
@@ -340,11 +352,23 @@ class Host:
 
         # Wait for response from the target
         if not self._waitForResponse(timeout):
-            print(f"Notification from handle {self._dfuHandle} not received")
+            print(f"Notification from handle {self._dfuCmdChar.getHandle()} not received")
             raise SystemExit
         
         # Extract the status code and payload of the target's response packet
-        return self._getResponse(self._dfuTarget.delegate.data)
+        return self._getResponse(self._dfuCmdChar.peripheral.delegate.data)
+
+
+    def _enableNotifications(self, cccd):
+        # Set the enable notifications bit in the CCCD's value
+        # Must send write request *with* response
+        cccd.write(b'\x01\x00', withResponse=True)
+
+        # Check the value of the CCCD to ensure notifications are enabled
+        cccdValue = cccd.read()
+        if cccdValue != b'\x01\x00':
+            print("Failed to enable notifications from the Bootloader service.")
+            raise SystemExit
 
 
 if __name__ == "__main__":
