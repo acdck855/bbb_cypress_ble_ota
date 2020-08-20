@@ -92,10 +92,7 @@ class Host:
         payload = struct.pack("<I", productID)
         
         # Send the Enter DFU command and get the response
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_ENTER_DFU, payload, 2)
-
-        # Check status code
-        self._checkStatusCode(statusCode)
+        respData = self._sendCommandGetResponse(self._CMD_ENTER_DFU, payload, 2)
 
         # Parse reponse packet payload and print data fields
         jtagID, deviceRev, dfuSdkVer = struct.unpack("<IBI", respData[:5] + b'\x00' + respData[5:])
@@ -123,10 +120,7 @@ class Host:
 
     def sendData(self, data):
         # Send the Send Command command and get the response from the target
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_SEND_DATA, data, 2)
-
-        # Check status code
-        self._checkStatusCode(statusCode)
+        self._sendCommandGetResponse(self._CMD_SEND_DATA, data, 2)
 
 
     def sendDataWithoutResponse(self, data):
@@ -142,10 +136,7 @@ class Host:
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
 
         # Send the Program Data command and get the response from the target
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_PROGRAM_DATA, payload, 2)
-
-        # Check status code
-        self._checkStatusCode(statusCode)
+        self._sendCommandGetResponse(self._CMD_PROGRAM_DATA, payload, 2)
         
 
     def verifyData(self, rowAddr, rowDataChecksum, data):
@@ -153,10 +144,7 @@ class Host:
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
         
         # Create and send the Verify Data command packet
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_VERIFY_DATA, payload)
-
-        # Check the status code
-        self._checkStatusCode(statusCode)
+        self._sendCommandGetResponse(self._CMD_VERIFY_DATA, payload)
         
 
     def eraseData(self, rowAddr):
@@ -165,9 +153,6 @@ class Host:
         
         # Create and send the Erase Data command packet
         self._sendCommandGetResponse(self._CMD_ERASE_DATA, payload)
-        
-        # Check the status code
-        self._checkStatusCode(statusCode)
 
         
     def verifyApplication(self, appNum):
@@ -175,10 +160,7 @@ class Host:
         payload = struct.pack("<B", appNum)
         
         # Send the Verify Application command and get the response from the target
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_VERIFY_APPLICATION, payload, 2)
-
-        # Check status code
-        self._checkStatusCode(statusCode)
+        respData = self._sendCommandGetResponse(self._CMD_VERIFY_APPLICATION, payload, 2)
 
         # Parse the response packet payload and print the result of the query
         appValid = struct.unpack("<B", respData)[0]
@@ -190,10 +172,7 @@ class Host:
         payload = struct.pack("<BII", appNum, appStartAddr, appLength)
 
         # Send the Set Application Metadata command and get the response from the target
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_SET_APPLICATION_METADATA, payload, 2)
-
-        # Check status code
-        self._checkStatusCode(statusCode)
+        self._sendCommandGetResponse(self._CMD_SET_APPLICATION_METADATA, payload, 2)
 
     
     def getMetadata(self, fromRowOffset, toRowOffset):
@@ -201,10 +180,7 @@ class Host:
         payload = struct.pack("<II", fromRowOffset, toRowOffset)
 
         # Create and send the Get Metadata command packet
-        statusCode, respData = self._sendCommandGetResponse(self._CMD_GET_METADATA, payload)
-
-        # Check status code
-        self._checkStatusCode(statusCode)
+        self._sendCommandGetResponse(self._CMD_GET_METADATA, payload)
 
 
     def setEIVector(self, vector):
@@ -306,7 +282,12 @@ class Host:
             raise SystemExit
         
         # Extract the status code and payload of the target's response packet
-        return self._getResponse(self._dfuCmdChar.peripheral.delegate.data)
+        statusCode, respData = self._getResponse(self._dfuCmdChar.peripheral.delegate.data)
+
+        # Check status code
+        self._checkStatusCode(statusCode)
+
+        return respData
 
 
     def _enableNotifications(self, cccd):
