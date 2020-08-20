@@ -36,7 +36,6 @@ class UnexpectedError(Exception):
 
 class Host:
 
-    # TODO Use dictionaries? e.g. {0x00: "Success"}
     _START_OF_PACKET                 = b'\x01'
     _END_OF_PACKET                   = b'\x17'
 
@@ -71,11 +70,6 @@ class Host:
 
 
     def __init__(self, dfuTarget):
-        # TODO Check input parameters
-
-        # TODO Enusre a connection has been established with the target
-
-        # TODO Error checking
         # Get the bootloader service object
         dfuService = dfuTarget.getServiceByUUID(self._CYPRESS_BOOTLOADER_SERVICE_UUID)
 
