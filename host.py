@@ -1,5 +1,37 @@
 import struct
 
+
+class DFUError(Exception):
+    pass
+
+class DFUErrorVerify(DFUError):
+    pass
+
+class DFUErrorLength(DFUError):
+    pass
+
+class DFUErrorData(DFUError):
+    pass
+
+class DFUErrorCmd(DFUError):
+    pass
+
+class DFUErrorChecksum(DFUError):
+    pass
+
+class DFUErrorRow(DFUError):
+    pass
+
+class DFUErrorRowAccess(DFUError):
+    pass
+
+class DFUErrorUnknown(DFUError):
+    pass
+
+class UnexpectedError(Exception):
+    pass
+    
+
 class Host:
 
     # TODO Use dictionaries? e.g. {0x00: "Success"}
@@ -21,15 +53,17 @@ class Host:
     _CMD_GET_METADATA                = b'\x3C'
     _CMD_SET_EIVECTOR                = b'\x4D'
 
-    _CODE_DFU_SUCCESS                = b'\x00'
-    _CODE_DFU_ERROR_VERIFY           = b'\x02'
-    _CODE_DFU_ERROR_LENGTH           = b'\x03'
-    _CODE_DFU_ERROR_DATA             = b'\x04'
-    _CODE_DFU_ERROR_CMD              = b'\x05'
-    _CODE_DFU_ERROR_CHECKSUM         = b'\x08'
-    _CODE_DFU_ERROR_ROW              = b'\x0A'
-    _CODE_DFU_ERROR_ROW_ACCESS       = b'\x0B'
-    _CODE_DFU_ERROR_UNKNOWN          = b'\x0F'
+    _DFU_STATUS_CODE = {
+            b'\x00': None,
+            b'\x02': DFUErrorVerify,
+            b'\x03': DFUErrorLength,
+            b'\x04': DFUErrorData,
+            b'\x05': DFUErrorCmd,
+            b'\x08': DFUErrorChecksum,
+            b'\x0A': DFUErrorRow,
+            b'\x0B': DFUErrorRowAccess,
+            b'\x0F': DFUErrorUnknown,
+    }
 
     _CYPRESS_BOOTLOADER_SERVICE_UUID = "00060000-F8CE-11E4-ABF4-0002A5D5C51B"
 
@@ -54,11 +88,6 @@ class Host:
 
 
     def enterDFU(self, productID = 0):
-        # Check input parameters
-        if not isinstance(productID, int):
-            print("productID must be an int object")
-            raise SystemExit
-
         # Create the packet payload
         payload = struct.pack("<I", productID)
         
@@ -66,9 +95,7 @@ class Host:
         statusCode, respData = self._sendCommandGetResponse(self._CMD_ENTER_DFU, payload, 2)
 
         # Check status code
-        if statusCode != self._CODE_DFU_SUCCESS:
-            print(f"ERROR: Enter DFU: Status code {statusCode} returned.")  
-            raise SystemExit
+        self._checkStatusCode(statusCode)
 
         # Parse reponse packet payload and print data fields
         jtagID, deviceRev, dfuSdkVer = struct.unpack("<IBI", respData[:5] + b'\x00' + respData[5:])
@@ -77,67 +104,40 @@ class Host:
         print(f"> Device Revision 0x{deviceRev:02x}")
         print(f"> DFU SDK Version 0x{dfuSdkVer:08x}")
 
-        return statusCode
     
     def syncDFU(self):
-        # Create the Sync DFU command packet
+        # Create and send the Sync DFU command packet
         packet = self._createCmdPacket(self._CMD_SYNC_DFU)
-        return self._sendPacket(packet)
+        self._sendPacket(packet)
+        
+        # This command is not acknowledged
 
 
     def exitDFU(self):
-        # Send the Exit DFU command (no response)
-        # Create the Exit DFU command packet
+        # Create and send the Exit DFU command packet
         packet = self._createCmdPacket(self._CMD_EXIT_DFU)
-
-        # Send the packet to the target
         self._sendPacket(packet)
-        
-        # No need to wait for and get response
-        return 
+
+        # This command is not acknowledged
 
 
     def sendData(self, data):
-        # Check input parameters
-        if not isinstance(data, bytes):
-            print("data must be a bytes object")
-            raise SystemExit
-
         # Send the Send Command command and get the response from the target
         statusCode, respData = self._sendCommandGetResponse(self._CMD_SEND_DATA, data, 2)
 
         # Check status code
-        if statusCode != self._CODE_DFU_SUCCESS:
-            print(f"ERROR: Send Data: Status code {statusCode} returned.")  
-            raise SystemExit
-        print("Send Data successful.")
-
-        return statusCode
+        self._checkStatusCode(statusCode)
 
 
     def sendDataWithoutResponse(self, data):
-        # Check input parameters
-        if not isinstance(data, bytes):
-            print("data must be a bytes object")
-            raise SystemExit
-
-        # Create the Send Data Without Response command packet
+        # Create and send the Send Data Without Response command packet
         packet = self._createCmdPacket(self._CMD_SEND_DATA_WITHOUT_RESPONSE, data)
-        return self._sendPacket(packet)
+        self._sendPacket(packet)
+
+        # This command is not acknowledged
 
 
     def programData(self, rowAddr, rowDataChecksum, data):
-        # Check input parameters
-        if not isinstance(rowAddr, int):
-            print("rowAddr must be an int object")
-            raise SystemExit
-        if not isinstance(rowDataChecksum, int):
-            print("rowDataChecksum must be an int object")
-            raise SystemExit
-        if not isinstance(data, bytes):
-            print("data must be a bytes object")
-            raise SystemExit
-
         # Create the packet payload
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
 
@@ -145,50 +145,32 @@ class Host:
         statusCode, respData = self._sendCommandGetResponse(self._CMD_PROGRAM_DATA, payload, 2)
 
         # Check status code
-        if statusCode != self._CODE_DFU_SUCCESS:
-            print(f"ERROR: Program Data: Status code {statusCode} returned.")  
-            raise SystemExit
-        print("Program Data successful.")
-
-        return statusCode
+        self._checkStatusCode(statusCode)
         
 
     def verifyData(self, rowAddr, rowDataChecksum, data):
-        # Check input parameters
-        if not isinstance(rowAddr, int):
-            print("rowAddr must be an int object")
-            raise SystemExit
-        if not isinstance(rowDataChecksum, int):
-            print("rowDataChecksum must be an int object")
-            raise SystemExit
-        if not isinstance(data, bytes):
-            print("data must be a bytes object")
-            raise SystemExit
-
         # Create the packet payload
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
         
-        # Create the Verify Data command packet
-        packet = self._createCmdPacket(self._CMD_VERIFY_DATA, payload)
-        return self._sendPacket(packet)
+        # Create and send the Verify Data command packet
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_VERIFY_DATA, payload)
+
+        # Check the status code
+        self._checkStatusCode(statusCode)
         
 
     def eraseData(self, rowAddr):
-        # Check input parameter
-        if not isinstance(rowAddr, int):
-            print("rowAddr must be an int object")
-            raise SystemExit
+        # Create the packet payload
+        payload = struct.pack("<I", rowAddr)
+        
+        # Create and send the Erase Data command packet
+        self._sendCommandGetResponse(self._CMD_ERASE_DATA, payload)
+        
+        # Check the status code
+        self._checkStatusCode(statusCode)
 
-        # Create the Erase Data command packet
-        packet = self._createCmdPacket(self._CMD_ERASE_DATA, struct.pack("<I", rowAddr))
-        return self._sendPacket(packet)
         
     def verifyApplication(self, appNum):
-        # Check input parameter
-        if not isinstance(appNum, int):
-            print("appNum must be an int object")
-            raise SystemExit
-        
         # Create the packet payload
         payload = struct.pack("<B", appNum)
         
@@ -196,31 +178,14 @@ class Host:
         statusCode, respData = self._sendCommandGetResponse(self._CMD_VERIFY_APPLICATION, payload, 2)
 
         # Check status code
-        if statusCode != self._CODE_DFU_SUCCESS:
-            print(f"ERROR: Verify Application: Status code {statusCode} returned.")  
-            raise SystemExit
-        print("Verify Application successful.")
+        self._checkStatusCode(statusCode)
 
         # Parse the response packet payload and print the result of the query
         appValid = struct.unpack("<B", respData)[0]
         print(f"> Result: {appValid}")
-        
-        return statusCode
 
 
     def setApplicationMetadata(self, appNum, appStartAddr, appLength):
-        # Check input parameters
-        if not isinstance(appNum, int):
-            print("appNum must be an int object")
-            raise SystemExit
-        if not isinstance(appStartAddr, int):
-            print("appStartAddr must be an int object")
-            raise SystemExit
-        # Check input parameter
-        if not isinstance(appLength, int):
-            print("appLength must be an int object")
-            raise SystemExit
-        
         # Create the packet payload
         payload = struct.pack("<BII", appNum, appStartAddr, appLength)
 
@@ -228,33 +193,18 @@ class Host:
         statusCode, respData = self._sendCommandGetResponse(self._CMD_SET_APPLICATION_METADATA, payload, 2)
 
         # Check status code
-        if statusCode != self._CODE_DFU_SUCCESS:
-            printf(f"ERROR: Set Application Metadata: Status code {statusCode} returned.")
-            raise SystemExit
-        print("Set Application Metadata successful.")
-            
-        return statusCode
+        self._checkStatusCode(statusCode)
 
     
     def getMetadata(self, fromRowOffset, toRowOffset):
-        # Check input parameters
-        if not isinstance(fromRowOffset, int):
-            print("fromRowOffset must be an int object")
-            raise SystemExit
-        if not isinstance(toRowOffset, int):
-            print("toRowOffset must be an int object")
-            raise SystemExit
-
-        if (fromRowOffset < 0) or (fromRowOffset > 511) or (toRowOffset < 0) or (toRowOffset > 511):
-            print("Invalid arguments for getMetadata()")
-            raise SystemExit
-
         # Create the packet payload
         payload = struct.pack("<II", fromRowOffset, toRowOffset)
 
-        # Create the Get Metadata command packet
-        packet = self._createCmdPacket(self._CMD_GET_METADATA, payload)
-        return self._sendPacket(packet)
+        # Create and send the Get Metadata command packet
+        statusCode, respData = self._sendCommandGetResponse(self._CMD_GET_METADATA, payload)
+
+        # Check status code
+        self._checkStatusCode(statusCode)
 
 
     def setEIVector(self, vector):
@@ -370,8 +320,22 @@ class Host:
             print("Failed to enable notifications from the Bootloader service.")
             raise SystemExit
 
+    def _checkStatusCode(self, code):
+        # get exception to raise
+        try:
+            ex = self._DFU_STATUS_CODE[code]
+        except KeyError:
+            raise UnexpectedError("The target responded with an undefined status code")
+        
+        # raise the exception if one was provided
+        if ex:
+            raise ex()
+
 
 if __name__ == "__main__":
-    h = Host()
+    from bluepy import btle
+
+    target = btle.Peripheral()
+    h = Host(target)
     resp = b'\x01\x00\x08\x00\x00\x00\x00\x00\x00\x00\x04\x01\xf2\xff\x17'
 
