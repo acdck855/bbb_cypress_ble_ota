@@ -1,5 +1,7 @@
 import struct
 
+class HostError(Exception):
+    pass
 
 class DFUError(Exception):
     pass
@@ -189,23 +191,19 @@ class Host:
 
 
     def _getResponse(self, packet):
-        # TODO Check input parameters
         # Attempt to unpack the response packet according to Figure 33 of AN213924
         try:
             startByte, statusCode, dataLength = struct.unpack("<ccH", packet[0:4])
             payload, checksum, endByte = struct.unpack(f"<{dataLength}sHc", packet[4:])
         except:
-            print("The response packet is malformed")
-            raise SystemExit
+            raise HostError("The response packet is malformed")
 
         if (startByte != self._START_OF_PACKET) or (endByte != self._END_OF_PACKET):
-            print("The response packet is malformed")
-            raise SystemExit
+            raise HostError("The response packet is malformed")
 
         # Verify packet checksum
         if self._calcChecksum_2sComplement_16bit(packet[:-3]) != checksum:
-            print("The response packet is currupted")
-            raise SystemExit
+            raise HostError("The response packet is currupted")
 
         return [statusCode, payload]
 
@@ -213,12 +211,10 @@ class Host:
     def _createCmdPacket(self, cmd, payload=b''):
         # Check input parameters
         if (not isinstance(cmd, bytes)) or (len(cmd) != 1):
-            print("cmd must be a bytes object with a length of 1")
-            raise SystemExit
+            raise HostError("cmd must be a bytes object with a length of 1")
 
         if not isinstance(payload, bytes):
-            print("payload must be a bytes object")
-            raise SystemExit
+            raise HostError("payload must be a bytes object")
 
         # Create command packet according to Figure 32 of AN213924
         payloadLength = len(payload)
@@ -229,8 +225,7 @@ class Host:
     def _calcChecksum_2sComplement_16bit(self, data):
         # Check input parameter
         if not isinstance(data, bytes):
-            print("data must be a bytes object")
-            raise SystemExit
+            raise HostError("data must be a bytes object")
 
         # Calculate the 16-bit 2's complement checksum
         cs = 0
@@ -241,11 +236,6 @@ class Host:
 
 
     def _sendPacket(self, packet, maxLen=20):
-        # Check input parameter
-        if not isinstance(packet, bytes):
-            print("packet must be a bytes object")
-            raise SystemExit
-        
         # Send the packet in maxLen increments
         packet = [packet[i:i+maxLen] for i in range(0, len(packet), maxLen)]
         for p in packet:
@@ -278,8 +268,7 @@ class Host:
 
         # Wait for response from the target
         if not self._waitForResponse(timeout):
-            print(f"Notification from handle {self._dfuCmdChar.getHandle()} not received")
-            raise SystemExit
+            raise HostError(f"Notification from handle {self._dfuCmdChar.getHandle()} not received")
         
         # Extract the status code and payload of the target's response packet
         statusCode, respData = self._getResponse(self._dfuCmdChar.peripheral.delegate.data)
@@ -298,8 +287,7 @@ class Host:
         # Check the value of the CCCD to ensure notifications are enabled
         cccdValue = cccd.read()
         if cccdValue != b'\x01\x00':
-            print("Failed to enable notifications from the Bootloader service.")
-            raise SystemExit
+            raise HostError("Failed to enable Bootloader service notifications.")
 
     def _checkStatusCode(self, code):
         # get exception to raise
