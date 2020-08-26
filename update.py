@@ -1,10 +1,9 @@
 #!env/bin/python
 
 from bluepy import btle
+import cydfu
 import crcmod
 import time
-import cyacd2
-import host
 import struct
 import threading
 import queue
@@ -68,6 +67,7 @@ class ScannerUI():
         print()
         self._displayPrompt()
 
+    # TODO: Make scaleable. Add options for abort, refresh, etc. 
     @property
     def userSelection(self):
         """Get and cache the user's selection."""
@@ -141,6 +141,49 @@ class ScannerUI():
         print("\x1B[K", end='')
 
 
+class Target(btle.Peripheral):
+
+    def updateFirmware(self, app):
+        crc32cFunc = crcmod.predefined.mkCrcFun('crc-32c')
+        dfuCmd = cydfu.CyDFUProtocol(self)
+
+        dfuCmd.enterDFU(app.productID)
+        # TODO change appID to id, appStartAddr to startAddr, etc.
+        dfuCmd.setApplicationMetadata(app.appID, app.appStartAddr, app.appLength)
+
+        while True:
+            try:
+                rowAddr, rowData = app.getNextRow()
+            except:
+                break
+
+            # Calculate the CRC-32C checksum of the row data
+            crc = crc32cFunc(rowData)
+
+            # Break the row data into smaller chunks of size payloadLength
+            # TODO don't hardcode this
+            payloadLength = 256
+            rowData = [rowData[i:i+payloadLength] for i in range(0, len(rowData), payloadLength)]
+
+            # Send all but the last chunk using the Send Data command
+            for chunk in rowData[:-1]:
+                dfuCmd.sendData(chunk)
+
+            # Send the last chunk using the Program Data command
+            dfuCmd.programData(rowAddr, crc, rowData[-1])
+
+        # Send Verify Application command
+        dfuCmd.verifyApplication(fwImg.appID)
+
+        # Send the Exit DFU command
+        dfuCmd.exitDFU()
+
+
+    def eraseFirmware(self, appNum):
+        # TODO Implement
+        pass
+
+
 if __name__ == '__main__':
     # Create a scanner object that sends BLE broadcast packets to the ScanDelegate
     scanner = btle.Scanner()
@@ -167,58 +210,13 @@ if __name__ == '__main__':
     # Retrieve the selected device
     device = list(scanner.getDevices())[scannerUI.userSelection-1]
 
-    # Connect to the user selected device
-    try:
-        target = btle.Peripheral(device.addr).withDelegate(Delegate())
-    except btle.BTLEException:
-        print(f"Could not connect to device \"{device.addr}\"")
-        print("Exiting...")
-        raise SystemExit
-    except:
-        print("Something went wrong.")
-        print("Exiting...")
-    print(f"Connected to device \"{target.addr}\"\n")
+    # TODO check for successful connection
+    # TODO if unsuccessful, re-scan
+    target = Target(device).withDelegate(Delegate())
 
-    crc32cFunc = crcmod.predefined.mkCrcFun('crc-32c')
-
-    hostCmd = host.Host(target)
-
-    fwImg = cyacd2.Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
-
-    # Begin a DFU operation
-    hostCmd.enterDFU(fwImg.productID)
-
-    # Set the application metadata
-    hostCmd.setApplicationMetadata(fwImg.appID, fwImg.appStartAddr, fwImg.appLength)
-
-    # Iterate through the remaining rows of program data and send them to the target
-    while True:
-        try:
-            rowAddr, rowData = fwImg.getNextRow()
-        except:
-            break
-        
-        # Calculate the CRC-32C checksum of the row data
-        crc = crc32cFunc(rowData)
-
-        # Break the row data into smaller chunks of size payloadSize
-        payloadLength = 256
-        rowData = [rowData[i:i+payloadLength] for i in range(0, len(rowData), payloadLength)]
-
-        # Send all but the last chunk using the Send Data command
-        for chunk in rowData[:-1]:
-            hostCmd.sendData(chunk)
-
-        # Send the last chunk using the Program Data command
-        hostCmd.programData(rowAddr, crc, rowData[-1])
-
+    fwImg = cydfu.Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
+    target.updateFirmware(fwImg)
     fwImg.close()
-
-    # Send Verify Application command
-    hostCmd.verifyApplication(fwImg.appID)
-
-    # Send the Exit DFU command
-    hostCmd.exitDFU()
 
     # TODO Make this better...
     try:
