@@ -84,6 +84,7 @@ class Host:
 
 
     def enterDFU(self, productID = 0):
+        """Begin a DFU operation"""
         # Create the packet payload
         payload = struct.pack("<I", productID)
         
@@ -99,6 +100,7 @@ class Host:
 
     
     def syncDFU(self):
+        """Resets the DFU to a known state, making it ready to accept a new command."""
         # Create and send the Sync DFU command packet
         packet = self._createCmdPacket(self._CMD_SYNC_DFU)
         self._sendPacket(packet)
@@ -107,6 +109,7 @@ class Host:
 
 
     def exitDFU(self):
+        """Ends the DFU operation"""
         # Create and send the Exit DFU command packet
         packet = self._createCmdPacket(self._CMD_EXIT_DFU)
         self._sendPacket(packet)
@@ -115,11 +118,13 @@ class Host:
 
 
     def sendData(self, data):
+        """Transfers a block of data to the DFU module."""
         # Send the Send Command command and get the response from the target
         self._sendCommandGetResponse(self._CMD_SEND_DATA, data, 2)
 
 
     def sendDataWithoutResponse(self, data):
+        """Same as the sendData command, except that no response is generated."""
         # Create and send the Send Data Without Response command packet
         packet = self._createCmdPacket(self._CMD_SEND_DATA_WITHOUT_RESPONSE, data)
         self._sendPacket(packet)
@@ -128,6 +133,7 @@ class Host:
 
 
     def programData(self, rowAddr, rowDataChecksum, data):
+        """Writes data to one row of the device internal flash or page of external NVM."""
         # Create the packet payload
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
 
@@ -136,6 +142,7 @@ class Host:
         
 
     def verifyData(self, rowAddr, rowDataChecksum, data):
+        """Compares data to one row of the device internal flash or page of SMIF."""
         # Create the packet payload
         payload = struct.pack("<II", rowAddr, rowDataChecksum) + data
         
@@ -144,6 +151,7 @@ class Host:
         
 
     def eraseData(self, rowAddr):
+        """Erases the contents of the specified internal flash row or SMIF page."""
         # Create the packet payload
         payload = struct.pack("<I", rowAddr)
         
@@ -152,6 +160,7 @@ class Host:
 
         
     def verifyApplication(self, appNum):
+        """Reports whether the checksum for the application in flash or external NVM is valid."""
         # Create the packet payload
         payload = struct.pack("<B", appNum)
         
@@ -164,6 +173,7 @@ class Host:
 
 
     def setApplicationMetadata(self, appNum, appStartAddr, appLength):
+        """Set a given application's metadata."""
         # Create the packet payload
         payload = struct.pack("<BII", appNum, appStartAddr, appLength)
 
@@ -172,6 +182,7 @@ class Host:
 
     
     def getMetadata(self, fromRowOffset, toRowOffset):
+        """Reports selected metadata bytes."""
         # Create the packet payload
         payload = struct.pack("<II", fromRowOffset, toRowOffset)
 
@@ -180,7 +191,7 @@ class Host:
 
 
     def setEIVector(self, vector):
-        "Currently not implemented"
+        """Sets an encrypted initialization vector (EIV). CURRENTLY NOT IMPLEMENTED"""
         pass
 
 
