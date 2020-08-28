@@ -3,6 +3,7 @@
 from bluepy import btle
 import cydfu
 import crcmod
+import sys
 import time
 import struct
 import threading
@@ -78,7 +79,7 @@ class ScannerUI():
                 # Validate the user's input
                 try:
                     selection = int(selection)
-                except:
+                except Exception:
                     self._errMsg = f"Choice \"{selection}\" not valid. "
                 else:
                     if (selection < 1) or (selection > self.devCount):
@@ -154,7 +155,7 @@ class Target(btle.Peripheral):
         while True:
             try:
                 rowAddr, rowData = app.getNextRow()
-            except:
+            except Exception:
                 break
 
             # Calculate the CRC-32C checksum of the row data
@@ -185,6 +186,29 @@ class Target(btle.Peripheral):
 
 
 if __name__ == '__main__':
+    usageStatement = "Usage: update.py <firmware image> [target MAC address]"
+    
+    # Check the command line arguments
+    if (len(sys.argv[1:]) == 0) or (len(sys.argv[1:]) > 2):
+        print(usageStatement)
+        raise SystemExit
+
+    try:
+        fwImg = cydfu.Application(sys.argv[1])    
+    except FileNotFoundError:
+        print(f"{sys.argv[1]} does not exist.")
+    except Exception:
+        # TODO Improve usage statment
+        print(usageStatement)
+        raise SystemExit
+    
+    if len(sys.argv[1:]) == 2:
+        try:
+            target = Target(sys.argv[2]).withDelegate(Delegate())
+        except Exception:
+            print(f"Could not connect to device {sys.argv[2]}")
+            raise SystemExit
+
     # Create a scanner object that sends BLE broadcast packets to the ScanDelegate
     scanner = btle.Scanner()
 
@@ -204,7 +228,7 @@ if __name__ == '__main__':
     # Stop the scanner
     try:
         scanner.stop()
-    except:
+    except Exception:
         print("Error stopping scanner.")
 
     # Retrieve the selected device
@@ -221,7 +245,7 @@ if __name__ == '__main__':
     # TODO Make this better...
     try:
         target.disconnect()
-    except:
+    except Exception:
         pass
     finally:
         print( "Disconnected from DFU Device." )
