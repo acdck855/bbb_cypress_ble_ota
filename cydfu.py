@@ -37,6 +37,11 @@ class DFUErrorUnknown(DFUError):
 class UnexpectedError(Exception):
     pass
     
+class InvalidFileType(Exception):
+    pass
+
+class InvalidApplicationFile(Exception):
+    pass
 
 class CyDFUProtocol:
     """Host Command/Response Protocol"""
@@ -315,8 +320,7 @@ class Application:
            application data from the APPDATA row"""
         # Ensure the file name has the ".cyacd2" extension
         if not cyacd2_file.endswith(".cyacd2"):
-            print("Invalid file type")
-            raise SystemExit
+            raise InvalidFileType("Expected an application file with the extension '.cyadc2'")
 
         # Open the cyacd2 file
         self._app = open(cyacd2_file, 'r')
@@ -344,8 +348,7 @@ class Application:
 
         # Verify header length
         if len(header) != 12:
-            printf("Invalid cyacd2 file: Header")
-            raise SystemExit
+            raise InvalidApplicationFile("Malformed header")
 
         # Extract fields from header
         header = struct.unpack("<BIBBBI", header)
@@ -365,8 +368,7 @@ class Application:
 
         # Verify that the label is valid
         if appinfo[0] != "@APPINFO":
-            print("Invalid cyacd2 file: APPINFO")
-            raise SystemExit
+            raise InvalidApplicationFile("Malformed application verification information")
 
         # Extract fields from metadata
         self.appStartAddr, self.appLength = appinfo[1].split(',') # they are big endian
@@ -379,8 +381,7 @@ class Application:
 
         # Verify row header
         if row[0] != ':':
-            print("Invalid cyacd2 file: Data")
-            raise SystemExit
+            raise InvalidApplicationFile("Malformed data row")
 
         # Extract row data
         _, row = row.split(':', 1)
@@ -395,6 +396,7 @@ class Application:
 
 
 if __name__ == "__main__":
+    # TODO delete these debugging lines
     resp = b'\x01\x00\x08\x00\x00\x00\x00\x00\x00\x00\x04\x01\xf2\xff\x17'
     a = Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
 

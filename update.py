@@ -186,7 +186,7 @@ class Target(btle.Peripheral):
 
 
 if __name__ == '__main__':
-    usageStatement = "Usage: update.py <firmware image> [target MAC address]"
+    usageStatement = "Usage: update.py <applicaion file> [target MAC address]"
     
     # Check the command line arguments
     if (len(sys.argv[1:]) == 0) or (len(sys.argv[1:]) > 2):
@@ -197,17 +197,22 @@ if __name__ == '__main__':
         fwImg = cydfu.Application(sys.argv[1])    
     except FileNotFoundError:
         print(f"{sys.argv[1]} does not exist.")
-    except Exception:
-        # TODO Improve usage statment
-        print(usageStatement)
         raise SystemExit
+    except cydfu.InvalidFileType:
+        print(usageStatement + '\n')
+        raise
+    except cydfu.InvaildApplicationFile:
+        raise
+    except Exception:
+        print(usageStatement + '\n')
+        raise 
     
     if len(sys.argv[1:]) == 2:
         try:
             target = Target(sys.argv[2]).withDelegate(Delegate())
         except Exception:
             print(f"Could not connect to device {sys.argv[2]}")
-            raise SystemExit
+            raise 
 
     # Create a scanner object that sends BLE broadcast packets to the ScanDelegate
     scanner = btle.Scanner()
