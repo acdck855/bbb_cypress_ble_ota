@@ -84,16 +84,17 @@ class ScannerUI():
                 else:
                     if (selection < 1) or (selection > self.devCount):
                         self._errMsg = f"Device {selection} is not on the list. "
+                        
+                        # Re-print the prompt (now with appropriate error message)
+                        self._moveCursorUp()
+                        self._moveCursorLeft(999)
+                        self._clearCursorToEnd()
+                        self._displayPrompt()
+
+                        # Re-start the getUserInput thread
+                        threading.Thread(target=self._getUserInput).start()
                     else:
                         self._userSelection = selection
-                        return self._userSelection
-                
-                # Re-print the prompt (now with appropriate error message)
-                self._moveCursorUp()
-                self._moveCursorLeft(999)
-                self._clearCursorToEnd()
-                self._displayPrompt()
-                threading.Thread(target=self._getUserInput).start()
 
         return self._userSelection 
 
@@ -193,6 +194,7 @@ if __name__ == '__main__':
         print(usageStatement)
         raise SystemExit
 
+    # If 1 or 2 command line arguments were provided, process the first one
     try:
         fwImg = cydfu.Application(sys.argv[1])    
     except FileNotFoundError:
@@ -207,6 +209,7 @@ if __name__ == '__main__':
         print(usageStatement + '\n')
         raise 
     
+    # If the optional second cmd line argument was provided, skip the scanning phase
     if len(sys.argv[1:]) == 2:
         try:
             target = Target(sys.argv[2]).withDelegate(Delegate())
