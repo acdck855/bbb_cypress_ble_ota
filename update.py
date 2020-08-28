@@ -209,12 +209,17 @@ if __name__ == '__main__':
         print(usageStatement + '\n')
         raise 
     
+    print()
+    
     # If the optional second cmd line argument was provided, skip the scanning phase
     if len(sys.argv[1:]) == 2:
         try:
             target = Target(sys.argv[2]).withDelegate(Delegate())
+        except ValueError:
+            print(usageStatement + '\n')
+            raise
         except Exception:
-            print(f"Could not connect to device {sys.argv[2]}")
+            print("An unexpected error has occurred.")
             raise 
 
     # Create a scanner object that sends BLE broadcast packets to the ScanDelegate
@@ -244,7 +249,10 @@ if __name__ == '__main__':
 
     # TODO check for successful connection
     # TODO if unsuccessful, re-scan
-    target = Target(device).withDelegate(Delegate())
+    try:
+        target = Target(device).withDelegate(Delegate())
+    except Exception:
+        print(f"Could not connect to device {device}. Re-scanning...")
 
     fwImg = cydfu.Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
     target.updateFirmware(fwImg)
