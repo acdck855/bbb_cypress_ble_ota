@@ -254,7 +254,6 @@ if __name__ == '__main__':
     except Exception:
         print(f"Could not connect to device {device}. Re-scanning...")
 
-    fwImg = cydfu.Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
     target.updateFirmware(fwImg)
     fwImg.close()
 
