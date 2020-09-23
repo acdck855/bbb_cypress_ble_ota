@@ -211,48 +211,52 @@ if __name__ == '__main__':
     
     print()
     
-    # If the optional second cmd line argument was provided, skip the scanning phase
+    # If the optional second cmd line argument was provided, try to connect
+    target = None
     if len(sys.argv[1:]) == 2:
         try:
             target = Target(sys.argv[2]).withDelegate(Delegate())
         except ValueError:
             print(usageStatement + '\n')
             raise
-        except Exception:
-            print("An unexpected error has occurred.")
-            raise 
+        except Exception as e:
+            print(e.args[0])
 
-    # Create a scanner object that sends BLE broadcast packets to the ScanDelegate
-    scanner = btle.Scanner()
+    if (target == None):
+        # Create scanner and scanner user interface objects
+        scanner = btle.Scanner()
+        scannerUI = ScannerUI()
 
-    # Create an object to manage the scanner user interface
-    scannerUI = ScannerUI()
+        while (target == None):
+            # Forget preveously discovered devices
+            scanner.clear()
+            scannerUI.reset()
 
-    # Start the scanner
-    scanner.start()
-    print("Scanning for devices...")
-    print()
+            # Start the scanner
+            scanner.start()
+            print("Scanning for devices...\n")
+            # TODO scannerUI.printHeader() 
 
-    # Continuously scan for devices while waiting for the user to choose one
-    while scannerUI.userSelection == None:
-        scannerUI.update(list(scanner.getDevices())[scannerUI.devCount:])
-        scanner.process(1)
+            # Continuously scan for devices while waiting for the user to choose one
+            while scannerUI.userSelection == None:
+                scannerUI.update(list(scanner.getDevices())[scannerUI.devCount:])
+                scanner.process(1)
 
-    # Stop the scanner
-    try:
-        scanner.stop()
-    except Exception:
-        print("Error stopping scanner.")
+            # Stop the scanner
+            try:
+                scanner.stop()
+            except Exception:
+                print("Error stopping scanner.")
 
-    # Retrieve the selected device
-    device = list(scanner.getDevices())[scannerUI.userSelection-1]
+            # Retrieve the selected device
+            device = list(scanner.getDevices())[scannerUI.userSelection-1]
 
-    # TODO check for successful connection
-    # TODO if unsuccessful, re-scan
-    try:
-        target = Target(device).withDelegate(Delegate())
-    except Exception:
-        print(f"Could not connect to device {device}. Re-scanning...")
+            # Try to connect to the device
+            try:
+                target = Target(device).withDelegate(Delegate())
+            except Exception:
+                print(f"Could not connect to device {device.addr}.")
+
 
     target.updateFirmware(fwImg)
     fwImg.close()
