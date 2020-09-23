@@ -4,8 +4,6 @@ from bluepy import btle
 import cydfu
 import crcmod
 import sys
-import time
-import struct
 import threading
 import queue
 
