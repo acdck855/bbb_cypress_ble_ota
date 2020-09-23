@@ -71,6 +71,10 @@ class ScannerUI():
                 # Remove user input from queue
                 selection = self._userInput.get() 
                 
+                # If user chose to quit...
+                if (selection == 'q') or (selection == 'Q'):
+                    raise SystemExit
+                
                 # Validate the user's input
                 try:
                     selection = int(selection)
@@ -122,7 +126,7 @@ class ScannerUI():
 
     def _displayPrompt(self):
         print(self._errMsg, end='')
-        print("Choose a device to update: ", end='', flush=True)
+        print("Choose a device to update [q to quit]: ", end='', flush=True)
         
         # If there is no thread to get user input running, start one
         if not self._inputThread.isAlive():
