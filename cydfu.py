@@ -43,8 +43,8 @@ class InvalidFileType(Exception):
 class InvalidApplicationFile(Exception):
     pass
 
-class CyDFUProtocol:
-    """Host Command/Response Protocol"""
+class DFUProtocol:
+    """Device Firmware Update Host Command/Response Protocol"""
     _START_OF_PACKET                 = b'\x01'
     _END_OF_PACKET                   = b'\x17'
 

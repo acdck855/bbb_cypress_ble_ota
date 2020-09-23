@@ -150,11 +150,11 @@ class Target(btle.Peripheral):
 
     def updateFirmware(self, app):
         crc32cFunc = crcmod.predefined.mkCrcFun('crc-32c')
-        dfuCmd = cydfu.CyDFUProtocol(self)
+        hostCmd = cydfu.DFUProtocol(self)
 
-        dfuCmd.enterDFU(app.productID)
+        hostCmd.enterDFU(app.productID)
         # TODO change appID to id, appStartAddr to startAddr, etc.
-        dfuCmd.setApplicationMetadata(app.appID, app.appStartAddr, app.appLength)
+        hostCmd.setApplicationMetadata(app.appID, app.appStartAddr, app.appLength)
 
         while True:
             try:
@@ -172,16 +172,16 @@ class Target(btle.Peripheral):
 
             # Send all but the last chunk using the Send Data command
             for chunk in rowData[:-1]:
-                dfuCmd.sendData(chunk)
+                hostCmd.sendData(chunk)
 
             # Send the last chunk using the Program Data command
-            dfuCmd.programData(rowAddr, crc, rowData[-1])
+            hostCmd.programData(rowAddr, crc, rowData[-1])
 
         # Send Verify Application command
-        dfuCmd.verifyApplication(fwImg.appID)
+        hostCmd.verifyApplication(fwImg.appID)
 
         # Send the Exit DFU command
-        dfuCmd.exitDFU()
+        hostCmd.exitDFU()
 
 
     def eraseFirmware(self, appNum):
