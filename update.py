@@ -29,7 +29,8 @@ class ScannerUI():
     _rssiWidth = 7
 
     def __init__(self):
-        self.userInput = queue.Queue()
+        self._userInput = queue.Queue()
+        self._inputThread = threading.Thread()
         self.reset()
 
     def reset(self):
@@ -43,9 +44,6 @@ class ScannerUI():
         self._userSelection = None
         self._errMsg = ''
 
-        # Start a separate thread to get user input
-        threading.Thread(target=self._getUserInput).start()
-
     def update(self, devices):
         """Update the UI by including the supplied devices in the table"""
         if devices == []:
@@ -58,9 +56,7 @@ class ScannerUI():
 
         for device in devices:
             self.devCount += 1
-
-            # Display the new device in the table
-            self._addDevice(device)
+            self._addDevice(device) # Display the new device in the table
 
         # Re-display the prompt
         print()
@@ -71,9 +67,9 @@ class ScannerUI():
     def userSelection(self):
         """Get, validate, and cache the user's selection."""
         if self._userSelection == None: # If the user has not yet made a valid selection
-            if not self.userInput.empty(): # If the user has provided some input
+            if not self._userInput.empty(): # If the user has provided some input
                 # Remove user input from queue
-                selection = self.userInput.get() 
+                selection = self._userInput.get() 
                 
                 # Validate the user's input
                 try:
@@ -83,17 +79,16 @@ class ScannerUI():
                 else:
                     if (selection < 1) or (selection > self.devCount):
                         self._errMsg = f"Device {selection} is not on the list. "
-                        
-                        # Re-print the prompt (now with appropriate error message)
-                        self._moveCursorUp()
-                        self._moveCursorLeft(999)
-                        self._clearCursorToEnd()
-                        self._displayPrompt()
-
-                        # Re-start the getUserInput thread
-                        threading.Thread(target=self._getUserInput).start()
                     else:
                         self._userSelection = selection
+                        self._errMsg = ''
+
+                # If user input was invalid, re-print the prompt
+                if (self._errMsg != ''):
+                    self._moveCursorUp()
+                    self._moveCursorLeft(999)
+                    self._clearCursorToEnd()
+                    self._displayPrompt()
 
         return self._userSelection 
 
@@ -128,9 +123,14 @@ class ScannerUI():
     def _displayPrompt(self):
         print(self._errMsg, end='')
         print("Choose a device to update: ", end='', flush=True)
+        
+        # If there is no thread to get user input running, start one
+        if not self._inputThread.isAlive():
+            self._inputThread = threading.Thread(target=self._getUserInput)
+            self._inputThread.start()
 
     def _getUserInput(self):
-        self.userInput.put(input())
+        self._userInput.put(input())
 
     def _moveCursorLeft(self, count=1):
         print(f"\x1B[{count}D", end='')
