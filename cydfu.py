@@ -2,6 +2,7 @@ import struct
 
 
 CYPRESS_GATT_SERVICE_BOOTLOADER_UUID = "00060000-F8CE-11E4-ABF4-0002A5D5C51B"
+CYPRESS_GATT_CHARACTERISTIC_COMMAND_UUID = "00060001-F8CE-11E4-ABF4-0002A5D5C51B"
 
 
 class HostError(Exception):
@@ -77,11 +78,8 @@ class DFUProtocol:
 
 
     def __init__(self, dfuTarget):
-        # Get the bootloader service object
-        dfuService = dfuTarget.getServiceByUUID(CYPRESS_GATT_SERVICE_BOOTLOADER_UUID)
-
         # Get the bootloader command characteristic (should be the only one...)
-        self._dfuCmdChar = dfuService.getCharacteristics()[0]
+        self._dfuCmdChar = dfuTarget.getCharacteristics(uuid=CYPRESS_GATT_CHARACTERISTIC_COMMAND_UUID)[0]
 
         # Get the Client Characteristic Configuration Descriptor (CCCD)
         self._dfuCCCD = self._dfuCmdChar.getDescriptors(forUUID=0x2902)[0]
