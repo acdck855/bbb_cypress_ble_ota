@@ -38,31 +38,29 @@ class ScannerUI():
         For example, if the selected device failed to connect and the user must
         choose again.
         """
+        # Reset state data
         self.devCount = 0
         self._userSelection = None
         self._errMsg = ''
+
+        # Start a separate thread to get user input
+        threading.Thread(target=self._getUserInput).start()
 
     def update(self, devices):
         """Update the UI by including the supplied devices in the table"""
         if devices == []:
             return
 
-        # If these are the first devices being displayed
-        if self.devCount == 0:
-            self._displayHeader()
-            # For now, we only want input when there are devices to choose from
-            threading.Thread(target=self._getUserInput).start()
-
         # Remove the prompt and move cursor to just below table
-        self._moveCursorLeft(999) # Move cursor to beginning of line
-        self._clearCursorToEnd() # Clear the line
-        self._moveCursorUp()
+        self._moveCursorLeft(999) # Move cursor to beginning of line (prompt)
+        self._clearCursorToEnd() # Clear the line (prompt)
+        self._moveCursorUp() # Move cursor up to add table entry
 
         for device in devices:
             self.devCount += 1
 
             # Display the new device in the table
-            self._displayDevice(device)
+            self._addDevice(device)
 
         # Re-display the prompt
         print()
@@ -71,10 +69,11 @@ class ScannerUI():
     # TODO: Make scaleable. Add options for abort, refresh, etc. 
     @property
     def userSelection(self):
-        """Get and cache the user's selection."""
+        """Get, validate, and cache the user's selection."""
         if self._userSelection == None: # If the user has not yet made a valid selection
             if not self.userInput.empty(): # If the user has provided some input
-                selection = self.userInput.get() # Remove from queue
+                # Remove user input from queue
+                selection = self.userInput.get() 
                 
                 # Validate the user's input
                 try:
@@ -98,7 +97,7 @@ class ScannerUI():
 
         return self._userSelection 
 
-    def _displayHeader(self):
+    def printHeader(self):
         """Display the table header."""
         print(
             f" {'Choice':^{self._choiceWidth}} |"
@@ -113,7 +112,7 @@ class ScannerUI():
         )
         print() 
 
-    def _displayDevice(self, device):
+    def _addDevice(self, device):
         """Display device the info as a table row."""
         devName = device.getValueText(9)
         if devName == None:
@@ -235,9 +234,9 @@ if __name__ == '__main__':
             # Start the scanner
             scanner.start()
             print("Scanning for devices...\n")
-            # TODO scannerUI.printHeader() 
 
             # Continuously scan for devices while waiting for the user to choose one
+            scannerUI.printHeader() 
             while scannerUI.userSelection == None:
                 scannerUI.update(list(scanner.getDevices())[scannerUI.devCount:])
                 scanner.process(1)
