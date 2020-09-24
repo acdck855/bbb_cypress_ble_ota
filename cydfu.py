@@ -200,6 +200,56 @@ class DFUProtocol:
         pass
 
 
+    def _calcChecksum_2sComplement_16bit(self, data):
+        # Check input parameter
+        if not isinstance(data, bytes):
+            raise HostError("data must be a bytes object")
+
+        # Calculate the 16-bit 2's complement checksum
+        cs = 0
+        for b in data:
+            cs = cs + b
+        
+        return (-cs & 0xFFFF)
+
+
+    def _checkStatusCode(self, code):
+        # get exception to raise
+        try:
+            ex = self._DFU_STATUS_CODE[code]
+        except KeyError:
+            raise UnexpectedError("The target responded with an undefined status code")
+        
+        # raise the exception if one was provided
+        if ex:
+            raise ex()
+
+
+    def _createCmdPacket(self, cmd, payload=b''):
+        # Check input parameters
+        if (not isinstance(cmd, bytes)) or (len(cmd) != 1):
+            raise HostError("cmd must be a bytes object with a length of 1")
+
+        if not isinstance(payload, bytes):
+            raise HostError("payload must be a bytes object")
+
+        # Create command packet according to Figure 32 of AN213924
+        payloadLength = len(payload)
+        packet = struct.pack(f"<ccH{payloadLength}s", self._START_OF_PACKET, cmd, payloadLength, payload)
+        return packet + struct.pack("<Hc", self._calcChecksum_2sComplement_16bit(packet), self._END_OF_PACKET)
+
+
+    def _enableNotifications(self, cccd):
+        # Set the enable notifications bit in the CCCD's value
+        # Must send write request *with* response
+        cccd.write(b'\x01\x00', withResponse=True)
+
+        # Check the value of the CCCD to ensure notifications are enabled
+        cccdValue = cccd.read()
+        if cccdValue != b'\x01\x00':
+            raise HostError("Failed to enable Bootloader service notifications.")
+
+
     def _getResponse(self, packet):
         # Attempt to unpack the response packet according to Figure 33 of AN213924
         try:
@@ -217,53 +267,6 @@ class DFUProtocol:
 
         return [statusCode, payload]
 
-
-    def _createCmdPacket(self, cmd, payload=b''):
-        # Check input parameters
-        if (not isinstance(cmd, bytes)) or (len(cmd) != 1):
-            raise HostError("cmd must be a bytes object with a length of 1")
-
-        if not isinstance(payload, bytes):
-            raise HostError("payload must be a bytes object")
-
-        # Create command packet according to Figure 32 of AN213924
-        payloadLength = len(payload)
-        packet = struct.pack(f"<ccH{payloadLength}s", self._START_OF_PACKET, cmd, payloadLength, payload)
-        return packet + struct.pack("<Hc", self._calcChecksum_2sComplement_16bit(packet), self._END_OF_PACKET)
-
-
-    def _calcChecksum_2sComplement_16bit(self, data):
-        # Check input parameter
-        if not isinstance(data, bytes):
-            raise HostError("data must be a bytes object")
-
-        # Calculate the 16-bit 2's complement checksum
-        cs = 0
-        for b in data:
-            cs = cs + b
-        
-        return (-cs & 0xFFFF)
-
-
-    def _sendPacket(self, packet, maxLen=20):
-        # Send the packet in maxLen increments
-        packet = [packet[i:i+maxLen] for i in range(0, len(packet), maxLen)]
-        for p in packet:
-            self._dfuCmdChar.write(p)
-
-
-    def _waitForResponse(self, timeout=1):
-        """timeout is in seconds"""
-        # Block until either a notification is received from the target or the timeout elapses
-        if not self._dfuCmdChar.peripheral.waitForNotifications(timeout):
-            return False
-
-        # If received notification is not from the DFU characteristic
-        while self._dfuCmdChar.peripheral.delegate.handle != self._dfuCmdChar.getHandle():
-            return False
-
-        # TODO handle receiving notifications from multiple characteristics
-        return True
 
     def _sendCommandGetResponse(self, cmd, payload=b'', timeout=1):
         # Create the command packet 
@@ -288,26 +291,25 @@ class DFUProtocol:
         return respData
 
 
-    def _enableNotifications(self, cccd):
-        # Set the enable notifications bit in the CCCD's value
-        # Must send write request *with* response
-        cccd.write(b'\x01\x00', withResponse=True)
+    def _sendPacket(self, packet, maxLen=20):
+        # Send the packet in maxLen increments
+        packet = [packet[i:i+maxLen] for i in range(0, len(packet), maxLen)]
+        for p in packet:
+            self._dfuCmdChar.write(p)
 
-        # Check the value of the CCCD to ensure notifications are enabled
-        cccdValue = cccd.read()
-        if cccdValue != b'\x01\x00':
-            raise HostError("Failed to enable Bootloader service notifications.")
 
-    def _checkStatusCode(self, code):
-        # get exception to raise
-        try:
-            ex = self._DFU_STATUS_CODE[code]
-        except KeyError:
-            raise UnexpectedError("The target responded with an undefined status code")
-        
-        # raise the exception if one was provided
-        if ex:
-            raise ex()
+    def _waitForResponse(self, timeout=1):
+        """timeout is in seconds"""
+        # Block until either a notification is received from the target or the timeout elapses
+        if not self._dfuCmdChar.peripheral.waitForNotifications(timeout):
+            return False
+
+        # If received notification is not from the DFU characteristic
+        while self._dfuCmdChar.peripheral.delegate.handle != self._dfuCmdChar.getHandle():
+            return False
+
+        # TODO handle receiving notifications from multiple characteristics
+        return True
 
 
 class Application:
