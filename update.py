@@ -11,8 +11,8 @@ import queue
 class Delegate(btle.DefaultDelegate):
     def __init__(self):
         super().__init__()
-        self.handle = 0
-        self.data = 0
+        self.handle = None
+        self.data = None
 
     def handleNotification(self, cHandle, data):
         print(f"Notification from {hex(cHandle)}: {data}")
