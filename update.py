@@ -146,7 +146,7 @@ class ScannerUI():
 
 class Target(btle.Peripheral):
 
-    def updateFirmware(self, app):
+    def updateFirmware(self, app, maxDataLength=512):
         crc32cFunc = crcmod.predefined.mkCrcFun('crc-32c')
         hostCmd = cydfu.DFUProtocol(self)
 
@@ -163,10 +163,8 @@ class Target(btle.Peripheral):
             # Calculate the CRC-32C checksum of the row data
             crc = crc32cFunc(rowData)
 
-            # Break the row data into smaller chunks of size payloadLength
-            # TODO don't hardcode this
-            payloadLength = 256
-            rowData = [rowData[i:i+payloadLength] for i in range(0, len(rowData), payloadLength)]
+            # Break the row data into smaller chunks of size maxDataLength
+            rowData = [rowData[i:i+maxDataLength] for i in range(0, len(rowData), maxDataLength)]
 
             # Send all but the last chunk using the Send Data command
             for chunk in rowData[:-1]:
