@@ -185,7 +185,7 @@ class Target(btle.Peripheral):
 
 
 if __name__ == '__main__':
-    usageStatement = "Usage: update.py <applicaion file> [target MAC address]"
+    usageStatement = "Usage: update.py applicaion_file [target_MAC_address]"
     
     # Check the command line arguments
     if (len(sys.argv[1:]) == 0) or (len(sys.argv[1:]) > 2):
