@@ -327,17 +327,9 @@ class Application:
 
         # Read and print the header info
         self.getHeader()
-        print(f"File Version: 0x{self.fileVersion:02x}")
-        print(f"Silicon ID: 0x{self.siliconID:08x}")
-        print(f"Silicon Revision: 0x{self.siliconRevision:02x}")
-        print(f"Checksum Type: {self.checksumType}")
-        print(f"App ID: 0x{self.appID:02x}")
-        print(f"Product ID: 0x{self.productID:08x}")
 
         # Read and print application verification information
         self.getAppInfo()
-        print(f"Application Start Address: 0x{self.startAddr:08x}")
-        print(f"Application Length: 0x{self.length:08x}")
 
         # TODO Handle files with an EIV (Encryption Initial Vector) row
 
