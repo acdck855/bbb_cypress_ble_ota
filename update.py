@@ -207,6 +207,9 @@ if __name__ == '__main__':
         print(usageStatement + '\n')
         raise 
     
+    print(f"Successfully opened application image file \"{sys.argv[1]}\"")
+    print(f"> File Version: 0x{fwImg.fileVersion:02x}")
+    print(f"> App ID: {fwImg.appID}")
     print()
     
     # If the optional second cmd line argument was provided, try to connect
