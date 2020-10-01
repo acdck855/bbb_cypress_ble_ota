@@ -151,8 +151,7 @@ class Target(btle.Peripheral):
         hostCmd = cydfu.DFUProtocol(self)
 
         hostCmd.enterDFU(app.productID)
-        # TODO change appID to id, appStartAddr to startAddr, etc.
-        hostCmd.setApplicationMetadata(app.appID, app.appStartAddr, app.appLength)
+        hostCmd.setApplicationMetadata(app.appID, app.startAddr, app.length)
 
         while True:
             try:

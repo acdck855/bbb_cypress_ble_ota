@@ -336,8 +336,8 @@ class Application:
 
         # Read and print application verification information
         self.getAppInfo()
-        print(f"Application Start Address: 0x{self.appStartAddr:08x}")
-        print(f"Application Length: 0x{self.appLength:08x}")
+        print(f"Application Start Address: 0x{self.startAddr:08x}")
+        print(f"Application Length: 0x{self.length:08x}")
 
         # TODO Handle files with an EIV (Encryption Initial Vector) row
 
@@ -371,9 +371,9 @@ class Application:
             raise InvalidApplicationFile("Malformed application verification information")
 
         # Extract fields from metadata
-        self.appStartAddr, self.appLength = appinfo[1].split(',') # they are big endian
-        self.appStartAddr = int(self.appStartAddr, 0)
-        self.appLength = int(self.appLength, 0)
+        self.startAddr, self.length = appinfo[1].split(',') # they are big endian
+        self.startAddr = int(self.startAddr, 0)
+        self.length = int(self.length, 0)
 
     def getNextRow(self):
         # Read row
