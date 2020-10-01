@@ -215,11 +215,9 @@ if __name__ == '__main__':
     if len(sys.argv[1:]) == 2:
         try:
             target = Target(sys.argv[2]).withDelegate(Delegate())
-        except ValueError:
-            print(usageStatement + '\n')
-            raise
         except Exception as e:
             print(e.args[0])
+            raise SystemExit
 
     if (target == None):
         # Create scanner and scanner user interface objects
