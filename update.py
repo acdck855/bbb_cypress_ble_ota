@@ -149,9 +149,17 @@ class Target(btle.Peripheral):
         crc32cFunc = crcmod.predefined.mkCrcFun('crc-32c')
         hostCmd = cydfu.DFUProtocol(self)
 
+        # Send the Enter DFU command
+        print("Starting DFU operation...")
         hostCmd.enterDFU(app.productID)
-        hostCmd.setApplicationMetadata(app.appID, app.startAddr, app.length)
+        print(f"> Product ID: 0x{app.productID:08X}\n")
 
+        # Set Application Metadata
+        hostCmd.setApplicationMetadata(app.appID, app.startAddr, app.length)
+        print(f"Application {app.appID} is {app.length} bytes long. Will begin writing at memory address 0x{app.startAddr:08X}.\n")
+
+        # Send row data to target
+        print("Sending Data...")
         while True:
             try:
                 rowAddr, rowData = app.getNextRow()
@@ -170,11 +178,20 @@ class Target(btle.Peripheral):
 
             # Send the last chunk using the Program Data command
             hostCmd.programData(rowAddr, crc, rowData[-1])
+            print(f"> Sent Data Row {app.currRow}/{app.numRows}")
+
+        print("Finished sending application to target.\n")
 
         # Send Verify Application command
-        hostCmd.verifyApplication(fwImg.appID)
+        print("Verifying Application...")
+        result = hostCmd.verifyApplication(fwImg.appID)
+        if result == 1:
+            print("> The application is valid!")
+        else:
+            print("> The application is NOT valid.")
 
         # Send the Exit DFU command
+        print("Ending DFU operation.")
         hostCmd.exitDFU()
 
 
