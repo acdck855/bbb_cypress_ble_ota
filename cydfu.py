@@ -321,13 +321,36 @@ class Application:
         # Open the cyacd2 file
         self._app = open(cyacd2_file, 'r')
 
+        # Count the number of lines in the file
+        self.numRows = self._getNumLines()
+
         # Read and print the header info
         self.getHeader()
+        self.numRows -= 1 # not a data row
 
         # Read and print application verification information
         self.getAppInfo()
+        self.numRows -= 1 # not a data row
 
         # TODO Handle files with an EIV (Encryption Initial Vector) row
+
+        # Initialize currRow counter
+        self.currRow = 0
+
+    def _getNumLines(self):
+        # Save the current stream position
+        prevPos = self._app.tell()
+
+        # Seek to the beginning of the file and count the number of lines
+        self._app.seek(0)
+        lineCount = 0
+        while self._app.readline():
+            lineCount += 1
+
+        # Return to the original stream position
+        self._app.seek(prevPos)
+
+        return lineCount
 
     def getHeader(self):
         # Read the header 
@@ -370,6 +393,7 @@ class Application:
         # Verify row header
         if row[0] != ':':
             raise InvalidApplicationFile("Malformed data row")
+        self.currRow += 1
 
         # Extract row data
         _, row = row.split(':', 1)
