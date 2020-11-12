@@ -172,8 +172,8 @@ class DFUProtocol:
         # Send the Verify Application command and get the response from the target
         respData = self._sendCommandGetResponse(self._CMD_VERIFY_APPLICATION, payload, 2)
 
-        # Parse the response packet payload and print the result of the query
-        appValid = struct.unpack("<B", respData)[0]
+        # Parse the response packet payload and return the result of the query
+        return struct.unpack("<B", respData)[0]
 
 
     def setApplicationMetadata(self, appNum, appStartAddr, appLength):
