@@ -174,7 +174,6 @@ class DFUProtocol:
 
         # Parse the response packet payload and print the result of the query
         appValid = struct.unpack("<B", respData)[0]
-        print(f"> Result: {appValid}")
 
 
     def setApplicationMetadata(self, appNum, appStartAddr, appLength):
@@ -271,9 +270,6 @@ class DFUProtocol:
     def _sendCommandGetResponse(self, cmd, payload=b'', timeout=1):
         # Create the command packet 
         packet = self._createCmdPacket(cmd, payload)
-        for b in struct.unpack(f"{len(packet)}B", packet):
-            print(f"{b:02X}:", end='')
-        print()
 
         # Send packet to target
         self._sendPacket(packet)

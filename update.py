@@ -15,7 +15,6 @@ class Delegate(btle.DefaultDelegate):
         self.data = None
 
     def handleNotification(self, cHandle, data):
-        print(f"Notification from {hex(cHandle)}: {data}")
         self.handle = cHandle
         self.data = data
 
