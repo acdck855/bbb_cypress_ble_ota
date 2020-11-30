@@ -276,7 +276,7 @@ if __name__ == '__main__':
     target.updateFirmware(fwImg)
     fwImg.close()
 
-    # TODO Make this better...
+    # TODO Make this more robust
     try:
         target.disconnect()
     except Exception:

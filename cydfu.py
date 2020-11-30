@@ -408,7 +408,4 @@ class Application:
 
 
 if __name__ == "__main__":
-    # TODO delete these debugging lines
-    resp = b'\x01\x00\x08\x00\x00\x00\x00\x00\x00\x00\x04\x01\xf2\xff\x17'
-    a = Application("mtb-example-psoc6-capsense-buttons-slider_crc.cyacd2")
-
+    pass
